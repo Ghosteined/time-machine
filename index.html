@@ -132,91 +132,93 @@
             return true;
         }
 
-        async function resizeImage(image) {
-            const maxSize = 1000;
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            
-            let width = image.width;
-            let height = image.height;
+        // Resize image and return as a Blob
+		async function resizeImage(image) {
+			const maxSize = 1000;
+			const canvas = document.createElement('canvas');
+			const ctx = canvas.getContext('2d');
 
-            if (width > maxSize || height > maxSize) {
-                if (width > height) {
-                    height = Math.round(height * (maxSize / width));
-                    width = maxSize;
-                } else {
-                    width = Math.round(width * (maxSize / height));
-                    height = maxSize;
-                }
-            }
+			let width = image.width;
+			let height = image.height;
 
-            canvas.width = width;
-            canvas.height = height;
-            ctx.drawImage(image, 0, 0, width, height);
+			if (width > maxSize || height > maxSize) {
+				if (width > height) {
+					height = Math.round(height * (maxSize / width));
+					width = maxSize;
+				} else {
+					width = Math.round(width * (maxSize / height));
+					height = maxSize;
+				}
+			}
 
-            const resizedImage = canvas.toDataURL('image/jpeg');
-            return resizedImage;
-        }
+			canvas.width = width;
+			canvas.height = height;
+			ctx.drawImage(image, 0, 0, width, height);
+
+			return new Promise((resolve) => {
+				canvas.toBlob((blob) => {
+					resolve(blob);  // Return as a Blob
+				}, 'image/jpeg', 0.9);
+			});
+		}
 
         async function uploadImage() {
-            const formData = new FormData();
-            const fileInput = document.getElementById('image');
-            const responseElement = document.getElementById('response');
+			const fileInput = document.getElementById('image');
+			const responseElement = document.getElementById('response');
 
-            // Clear previous responses
-            responseElement.innerHTML = '';
-            responseElement.classList.remove('not-empty'); // Remove outline class when empty
+			// Clear previous responses
+			responseElement.innerHTML = '';
+			responseElement.classList.remove('not-empty');
 
-            if (fileInput.files.length === 0) {
-                responseElement.innerText = 'Please select a file.';
-                responseElement.classList.add('not-empty'); // Add outline when showing error message
-                return;
-            }
+			if (fileInput.files.length === 0) {
+				responseElement.innerText = 'Please select a file.';
+				responseElement.classList.add('not-empty');
+				return;
+			}
 
-            const file = fileInput.files[0];
+			const file = fileInput.files[0];
 
-            // Validate file extension
-            if (!validateImage(file)) {
-                responseElement.innerText = 'Please select a JPG or JPEG image.';
-                responseElement.classList.add('not-empty');
-                return;
-            }
+			// Validate file extension
+			if (!validateImage(file)) {
+				responseElement.innerText = 'Please select a JPG or JPEG image.';
+				responseElement.classList.add('not-empty');
+				return;
+			}
 
-            const reader = new FileReader();
-            reader.onload = async function (e) {
-                const img = new Image();
-                img.onload = async function () {
-                    // Resize image if needed
-                    const resizedImage = await resizeImage(img);
+			const reader = new FileReader();
+			reader.onload = async function (e) {
+				const img = new Image();
+				img.onload = async function () {
+					const resizedBlob = await resizeImage(img);
 
-                    // Append the resized image to the formData
-                    formData.append('image', resizedImage);
+					const formData = new FormData();
+					formData.append('image', resizedBlob, file.name);  // Append as a file
 
-                    // Start loading dots animation
-                    let dotsCount = 0;
-                    loadingDotsInterval = setInterval(() => {
-                        dotsCount = (dotsCount + 1) % 4;
-                        responseElement.innerText = 'Uploading' + '.'.repeat(dotsCount);
-                        responseElement.classList.add('not-empty'); // Add outline while loading
-                    }, 500);
+					// Start loading dots animation
+					let dotsCount = 0;
+					loadingDotsInterval = setInterval(() => {
+						dotsCount = (dotsCount + 1) % 4;
+						responseElement.innerText = 'Uploading' + '.'.repeat(dotsCount);
+						responseElement.classList.add('not-empty');
+					}, 500);
 
-                    try {
-                        const response = await fetch('http://localhost/post', {
-                            method: 'POST',
-                            body: formData
-                        });
-                        const result = await response.json();
-                        clearInterval(loadingDotsInterval); // Clear loading dots when finished
-                        responseElement.innerText = result.message || result.error;
-                    } catch (error) {
-                        clearInterval(loadingDotsInterval); // Clear loading dots on error
-                        responseElement.innerText = 'Upload failed. Please try again.';
-                    }
-                };
-                img.src = e.target.result;
-            };
-            reader.readAsDataURL(file);
-        }
+					try {
+						const response = await fetch('http://localhost/post', {
+							method: 'POST',
+							body: formData
+						});
+						const result = await response.json();
+						clearInterval(loadingDotsInterval);
+						responseElement.innerText = result.message || result.error;
+					} catch (error) {
+						clearInterval(loadingDotsInterval);
+						responseElement.innerText = 'Upload failed. Please try again.';
+					}
+				};
+				img.src = e.target.result;
+			};
+			reader.readAsDataURL(file);
+		}
     </script>
 </body>
 
