@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -103,6 +105,7 @@
             <label for="image">Choose an Image</label>
             <input type="file" id="image" name="image" accept="image/*" required onchange="updateFileName()">
             <button type="button" class="upload-btn" onclick="uploadImage()">Upload</button>
+			<button type="button" class="upload-btn" onclick="getRecommendation()">Recommend</button>
         </form>
         <p id="response"></p>
         <p id="filename"></p> <!-- File name display -->
@@ -203,7 +206,8 @@
 					}, 500);
 
 					try {
-						const response = await fetch('http://localhost/post', {
+						// Change URL here to match your ngrok URL
+						const response = await fetch('http://positive-seahorse-fully.ngrok-free.app/post', {  // Replace with your ngrok URL
 							method: 'POST',
 							body: formData
 						});
@@ -218,6 +222,66 @@
 				img.src = e.target.result;
 			};
 			reader.readAsDataURL(file);
+		}
+		function getRecommendation() {
+			const responseElement = document.getElementById('response');
+			const filenameElement = document.getElementById('filename');
+			
+			// Clear previous responses
+			responseElement.innerHTML = '';
+			responseElement.classList.remove('not-empty');
+			
+			// Start loading dots animation
+			let dotsCount = 0;
+			loadingDotsInterval = setInterval(() => {
+				dotsCount = (dotsCount + 1) % 4;
+				responseElement.innerText = 'Getting recommendation' + '.'.repeat(dotsCount);
+				responseElement.classList.add('not-empty');
+			}, 500);
+			
+			// Send POST request to backend
+			fetch('http://positive-seahorse-fully.ngrok-free.app/recommendation', {
+				method: 'POST', // Use POST instead of GET
+				headers: {
+					'Content-Type': 'application/json', // Make sure the content type is JSON
+				},
+				body: JSON.stringify({ /* Include any necessary data here */ }) // If you need to send data, include it in the body
+			})
+			.then((response) => response.text()) // Get response as text first
+			.then((text) => {
+				console.log('Raw Response:', text); // Log raw response for debugging
+				try {
+					const data = JSON.parse(text); // Attempt to parse JSON
+					clearInterval(loadingDotsInterval);
+					if (data.contents && data.contents.length > 0) {
+						// Handle recommended image display
+						const recommendedImage = document.createElement('img');
+						recommendedImage.src = 'data:image/jpeg;base64,' + data.contents[0];
+						recommendedImage.style.maxWidth = '100%';
+						recommendedImage.style.borderRadius = '10px';
+						
+						// Show the image and a message
+						responseElement.innerHTML = 'Recommended Image:';
+						responseElement.classList.add('not-empty');
+						filenameElement.innerHTML = ''; // Clear filename
+						responseElement.appendChild(recommendedImage);
+					} else {
+						responseElement.innerText = 'No recommendation found.';
+						responseElement.classList.add('not-empty');
+					}
+				} catch (error) {
+					clearInterval(loadingDotsInterval);
+					console.error('Recommendation Error:', error);
+					responseElement.innerText = 'Failed to fetch recommendation. Please try again.';
+					responseElement.classList.add('not-empty');
+				}
+			})
+			.catch((error) => {
+				clearInterval(loadingDotsInterval);
+				console.error('Network Error:', error);
+				responseElement.innerText = 'Network error. Please try again.';
+				responseElement.classList.add('not-empty');
+			});
 		}
     </script>
 </body>
